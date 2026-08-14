@@ -873,6 +873,30 @@ react/cjs/react-jsx-runtime.production.js:
           en: { label: "Output format", auto: "Auto · varies by file", note: "Smart choice may use a different format for each file" }
         };
 
+        const actualFormatsByName = new Map();
+        let capturingCompressionResults = false;
+        let capturedCompressionResults = [];
+        let assignedCompressionResults = 0;
+        const nativeCreateObjectURL = URL.createObjectURL.bind(URL);
+        URL.createObjectURL = (value) => {
+          const url = nativeCreateObjectURL(value);
+          if (capturingCompressionResults && value instanceof Blob && value.type.startsWith("image/")) {
+            capturedCompressionResults.push({
+              format: value.type.replace("image/", "").toUpperCase(),
+              size: value.size
+            });
+          }
+          return url;
+        };
+
+        document.addEventListener("click", (event) => {
+          if (!event.target.closest(".primary-button")) return;
+          actualFormatsByName.clear();
+          capturedCompressionResults = [];
+          assignedCompressionResults = 0;
+          capturingCompressionResults = true;
+        });
+
         const parseSize = (value) => {
           const match = value.match(/([\d.]+)\s*(B|KB|MB|GB)/i);
           if (!match) return 0;
@@ -896,12 +920,30 @@ react/cjs/react-jsx-runtime.production.js:
           });
         };
 
+        const updateActualFormats = () => {
+          if (!capturingCompressionResults || !capturedCompressionResults.length) return;
+          const completedRows = [...document.querySelectorAll(".queue-item")]
+            .filter((item) => item.querySelector(".item-state.done"));
+          while (assignedCompressionResults < capturedCompressionResults.length && assignedCompressionResults < completedRows.length) {
+            const item = completedRows[assignedCompressionResults];
+            const name = item.querySelector(".file-copy strong")?.textContent.trim();
+            if (name) actualFormatsByName.set(name, capturedCompressionResults[assignedCompressionResults].format);
+            assignedCompressionResults += 1;
+          }
+          const finishedRows = [...document.querySelectorAll(".queue-item")]
+            .filter((item) => item.querySelector(".item-state.done, .item-state.error"));
+          if (finishedRows.length === document.querySelectorAll(".queue-item").length && finishedRows.length) {
+            capturingCompressionResults = false;
+          }
+        };
+
         const updateOutputFormat = () => {
           const language = document.documentElement.dataset.language === "en" ? "en" : "zh";
           const text = formatCopy[language];
           const selected = document.querySelector('input[name="format"]:checked');
           const value = selected?.value || "auto";
           const format = value === "auto" ? text.auto : value.replace("image/", "").toUpperCase();
+          const rowFormat = value === "auto" ? "AUTO" : format;
           document.querySelectorAll(".comparison").forEach((comparison) => {
             const head = comparison.querySelector(".queue-head");
             if (!head) return;
@@ -937,24 +979,32 @@ react/cjs/react-jsx-runtime.production.js:
               badge.title = `${text.label}: ${badge.dataset.actualFormat}`;
             }
 
-            const activeItem = document.querySelector(".queue-item.active");
-            const fileCopy = activeItem?.querySelector(".file-copy");
-            const originalMeta = fileCopy?.querySelector("small");
-            const compressedFigure = comparison.querySelector(".compare-grid figure:nth-child(2)");
-            const compressedSize = compressedFigure?.querySelector("figcaption strong")?.textContent.trim() || "";
-            if (fileCopy && originalMeta) {
-              originalMeta.style.display = "none";
-              let outputMeta = fileCopy.querySelector(".output-meta");
-              if (!outputMeta) {
-                outputMeta = document.createElement("small");
-                outputMeta.className = "output-meta";
-                fileCopy.appendChild(outputMeta);
-              }
-              const originalText = `${language === "en" ? "Original" : "原始"} · ${originalMeta.textContent.trim()}`;
-              const outputText = `${language === "en" ? "Output" : "輸出"} · ${compressedSize} · ${displayFormat}`;
-              const combinedText = `${originalText}　　${outputText}`;
-              if (outputMeta.textContent !== combinedText) outputMeta.textContent = combinedText;
+          });
+
+          const activeItem = document.querySelector(".queue-item.active");
+          const activeComparison = document.querySelector(".comparison");
+          const activeBadge = activeComparison?.querySelector(".output-format-badge");
+          const activeFormat = activeBadge?.dataset.actualFormat || format;
+          document.querySelectorAll(".queue-item").forEach((item) => {
+            const fileCopy = item.querySelector(".file-copy");
+            const originalMeta = fileCopy?.querySelector("small:not(.output-meta)");
+            const compressedSize = item.querySelector(".item-size")?.textContent.trim() || "";
+            if (!fileCopy || !originalMeta || !compressedSize || compressedSize === "—") return;
+
+            originalMeta.style.display = "none";
+            let outputMeta = fileCopy.querySelector(".output-meta");
+            if (!outputMeta) {
+              outputMeta = document.createElement("small");
+              outputMeta.className = "output-meta";
+              fileCopy.appendChild(outputMeta);
             }
+            const fileName = fileCopy.querySelector("strong")?.textContent.trim() || "";
+            const displayFormat = actualFormatsByName.get(fileName)
+              || (item === activeItem ? activeFormat : rowFormat);
+            const originalText = `${language === "en" ? "Original" : "原始"} · ${originalMeta.textContent.trim()}`;
+            const outputText = `${language === "en" ? "Output" : "輸出"} · ${compressedSize} · ${displayFormat}`;
+            const combinedText = `${originalText}　　${outputText}`;
+            if (outputMeta.textContent !== combinedText) outputMeta.textContent = combinedText;
           });
         };
 
@@ -964,6 +1014,7 @@ react/cjs/react-jsx-runtime.production.js:
         window.addEventListener("localshrink-language-change", updateOutputFormat);
         window.addEventListener("load", () => window.setTimeout(updateOutputFormat, 0), { once: true });
         window.setInterval(() => {
+          updateActualFormats();
           updateOutputFormat();
           updateSizeDeltaStates();
         }, 500);
