@@ -429,7 +429,12 @@ react/cjs/react-jsx-runtime.production.js:
 
         const replaceLanguage = (value, toEnglish) => {
           let result = value;
-          for (const [zh, en] of translations) {
+          const orderedTranslations = [...translations].sort((a, b) => {
+            const aLength = toEnglish ? a[0].length : a[1].length;
+            const bLength = toEnglish ? b[0].length : b[1].length;
+            return bLength - aLength;
+          });
+          for (const [zh, en] of orderedTranslations) {
             result = result.split(toEnglish ? zh : en).join(toEnglish ? en : zh);
           }
           return result;
@@ -441,6 +446,7 @@ react/cjs/react-jsx-runtime.production.js:
           const toEnglish = language === "en";
           document.documentElement.lang = toEnglish ? "en" : "zh-Hant";
           document.documentElement.dataset.language = toEnglish ? "en" : "zh";
+          window.dispatchEvent(new CustomEvent("localshrink-language-change", { detail: { language } }));
           const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
           let node;
           while ((node = walker.nextNode())) {
@@ -516,6 +522,451 @@ react/cjs/react-jsx-runtime.production.js:
           }
         };
         window.addEventListener("load", () => window.setTimeout(boot, 0), { once: true });
+      })();
+    </script>
+    <style>
+      .comparison .queue-head {
+        position: relative;
+        min-height: 126px;
+        padding-bottom: 48px;
+      }
+      .comparison .queue-head::after {
+        position: absolute;
+        left: 22px;
+        bottom: 15px;
+        color: var(--muted);
+        content: "點擊任一張圖片可放大查看細節";
+        font-size: 13px;
+        font-weight: 700;
+      }
+      html[data-language="en"] .comparison .queue-head::after {
+        content: "Click either image to zoom in and inspect details";
+      }
+      .comparison .compare-grid figure { cursor: zoom-in; }
+      .detail-modal-open { overflow: hidden; }
+      .detail-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: none;
+        flex-direction: column;
+        gap: 16px;
+        padding: 24px;
+        background: rgba(23, 23, 20, .94);
+        color: white;
+      }
+      .detail-modal.is-open { display: flex; }
+      .detail-modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        max-width: 1400px;
+        width: 100%;
+        margin: 0 auto;
+      }
+      .detail-modal-kicker {
+        display: block;
+        color: var(--acid);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .16em;
+      }
+      .detail-modal-title {
+        margin: 6px 0 0;
+        font-size: 26px;
+        letter-spacing: -.035em;
+      }
+      .detail-modal-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .detail-modal-controls button {
+        min-width: 44px;
+        height: 42px;
+        border: 1px solid rgba(255,255,255,.45);
+        background: rgba(255,255,255,.08);
+        color: white;
+        font-size: 18px;
+        cursor: pointer;
+      }
+      .detail-modal-controls button:hover { background: var(--acid); color: var(--ink); }
+      .detail-modal-controls .detail-modal-reset { min-width: 62px; font-size: 12px; font-weight: 800; }
+      .detail-modal-controls .detail-modal-close { margin-left: 8px; font-size: 24px; }
+      .detail-modal-hint {
+        max-width: 1400px;
+        width: 100%;
+        margin: -4px auto 0;
+        color: rgba(255,255,255,.68);
+        font-size: 13px;
+      }
+      .detail-modal-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        width: 100%;
+        max-width: 1400px;
+        flex: 1;
+        min-height: 0;
+        margin: 0 auto;
+      }
+      .detail-modal-pane {
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
+        cursor: grab;
+        background-color: #e8e5db;
+        background-image: linear-gradient(45deg,#dad7ce 25%,transparent 25%),linear-gradient(-45deg,#dad7ce 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#dad7ce 75%),linear-gradient(-45deg,transparent 75%,#dad7ce 75%);
+        background-size: 16px 16px;
+        background-position: 0 0,0 8px,8px -8px,-8px 0;
+      }
+      .detail-modal-pane.is-dragging {
+        cursor: grabbing;
+        user-select: none;
+      }
+      .detail-modal-pane-head {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        background: rgba(250,249,245,.94);
+        color: var(--ink);
+        font-size: 14px;
+      }
+      .detail-modal-pane-head span { color: var(--muted); }
+      .detail-modal-pane img {
+        display: block;
+        width: 100%;
+        max-width: none;
+        height: auto;
+        margin: 0 auto;
+      }
+      @media (max-width: 700px) {
+        .detail-modal { padding: 16px; }
+        .detail-modal-head { align-items: flex-start; }
+        .detail-modal-title { font-size: 22px; }
+        .detail-modal-controls { flex-wrap: wrap; justify-content: flex-end; }
+        .detail-modal-body { grid-template-columns: 1fr; }
+      }
+    </style>
+    <script>
+      (() => {
+        const modal = document.createElement("div");
+        modal.className = "detail-modal";
+        modal.setAttribute("role", "dialog");
+        modal.setAttribute("aria-modal", "true");
+        modal.innerHTML = `
+          <div class="detail-modal-head">
+            <div>
+              <span class="detail-modal-kicker" data-modal-kicker></span>
+              <h2 class="detail-modal-title" data-modal-title></h2>
+            </div>
+            <div class="detail-modal-controls">
+              <button type="button" data-zoom-out aria-label=""></button>
+              <button type="button" class="detail-modal-reset" data-zoom-reset>100%</button>
+              <button type="button" data-zoom-in aria-label=""></button>
+              <button type="button" class="detail-modal-close" data-modal-close aria-label="">×</button>
+            </div>
+          </div>
+          <p class="detail-modal-hint" data-modal-hint></p>
+          <div class="detail-modal-body">
+            <section class="detail-modal-pane">
+              <div class="detail-modal-pane-head"><strong data-pane-title="original"></strong><span data-pane-meta="original"></span></div>
+              <img data-pane-image="original" alt="" />
+            </section>
+            <section class="detail-modal-pane">
+              <div class="detail-modal-pane-head"><strong data-pane-title="compressed"></strong><span data-pane-meta="compressed"></span></div>
+              <img data-pane-image="compressed" alt="" />
+            </section>
+          </div>`;
+        document.body.appendChild(modal);
+
+        let scale = 1;
+        let currentRecords = [];
+        const copy = {
+          zh: { kicker: "細節檢視", title: "放大比較", hint: "按住滑鼠拖曳移動，滾動滾輪縮放；可查看細節與壓縮損失", zoomOut: "縮小", zoomIn: "放大", close: "關閉", original: "原始", compressed: "壓縮後" },
+          en: { kicker: "DETAIL VIEW", title: "Zoomed comparison", hint: "Drag with the mouse to pan and use the wheel to zoom; inspect detail and compression loss", zoomOut: "Zoom out", zoomIn: "Zoom in", close: "Close", original: "Original", compressed: "Compressed" }
+        };
+
+        const currentCopy = () => copy[document.documentElement.dataset.language === "en" ? "en" : "zh"];
+        const setModalCopy = () => {
+          const text = currentCopy();
+          modal.querySelector("[data-modal-kicker]").textContent = text.kicker;
+          modal.querySelector("[data-modal-title]").textContent = text.title;
+          modal.querySelector("[data-modal-hint]").textContent = text.hint;
+          modal.querySelector("[data-zoom-out]").textContent = "−";
+          modal.querySelector("[data-zoom-out]").setAttribute("aria-label", text.zoomOut);
+          modal.querySelector("[data-zoom-in]").textContent = "+";
+          modal.querySelector("[data-zoom-in]").setAttribute("aria-label", text.zoomIn);
+          modal.querySelector("[data-modal-close]").setAttribute("aria-label", text.close);
+          modal.querySelector('[data-pane-title="original"]').textContent = text.original;
+          modal.querySelector('[data-pane-title="compressed"]').textContent = text.compressed;
+        };
+
+        const panes = [...modal.querySelectorAll(".detail-modal-pane")];
+        let syncingScroll = false;
+
+        const syncPaneScroll = (sourcePane) => {
+          if (syncingScroll) return;
+          syncingScroll = true;
+          const maxSourceLeft = Math.max(0, sourcePane.scrollWidth - sourcePane.clientWidth);
+          const maxSourceTop = Math.max(0, sourcePane.scrollHeight - sourcePane.clientHeight);
+          const leftRatio = maxSourceLeft ? sourcePane.scrollLeft / maxSourceLeft : 0;
+          const topRatio = maxSourceTop ? sourcePane.scrollTop / maxSourceTop : 0;
+          panes.forEach((pane) => {
+            if (pane === sourcePane) return;
+            pane.scrollLeft = leftRatio * Math.max(0, pane.scrollWidth - pane.clientWidth);
+            pane.scrollTop = topRatio * Math.max(0, pane.scrollHeight - pane.clientHeight);
+          });
+          window.requestAnimationFrame(() => { syncingScroll = false; });
+        };
+
+        const setScale = (nextScale) => {
+          scale = Math.max(.5, Math.min(4, nextScale));
+          modal.querySelectorAll("[data-pane-image]").forEach((image) => {
+            image.style.width = `${scale * 100}%`;
+          });
+          modal.querySelector("[data-zoom-reset]").textContent = `${Math.round(scale * 100)}%`;
+        };
+
+        const zoomAt = (pane, event, amount) => {
+          const previousScale = scale;
+          const nextScale = Math.max(.5, Math.min(4, scale + amount));
+          if (nextScale === previousScale) return;
+          const rect = pane.getBoundingClientRect();
+          const pointerX = event.clientX - rect.left;
+          const pointerY = event.clientY - rect.top;
+          const contentX = pane.scrollLeft + pointerX;
+          const contentY = pane.scrollTop + pointerY;
+          setScale(nextScale);
+          window.requestAnimationFrame(() => {
+            const ratio = nextScale / previousScale;
+            pane.scrollLeft = Math.max(0, contentX * ratio - pointerX);
+            pane.scrollTop = Math.max(0, contentY * ratio - pointerY);
+            syncPaneScroll(pane);
+          });
+        };
+
+        panes.forEach((pane) => {
+          let dragState = null;
+          pane.addEventListener("wheel", (event) => {
+            event.preventDefault();
+            zoomAt(pane, event, event.deltaY < 0 ? .25 : -.25);
+          }, { passive: false });
+          pane.addEventListener("pointerdown", (event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            dragState = { x: event.clientX, y: event.clientY, left: pane.scrollLeft, top: pane.scrollTop };
+            pane.classList.add("is-dragging");
+            pane.setPointerCapture(event.pointerId);
+          });
+          pane.addEventListener("pointermove", (event) => {
+            if (!dragState) return;
+            pane.scrollLeft = dragState.left - (event.clientX - dragState.x);
+            pane.scrollTop = dragState.top - (event.clientY - dragState.y);
+            syncPaneScroll(pane);
+          });
+          const stopDragging = (event) => {
+            if (!dragState) return;
+            dragState = null;
+            pane.classList.remove("is-dragging");
+            if (event.pointerId !== undefined && pane.hasPointerCapture(event.pointerId)) pane.releasePointerCapture(event.pointerId);
+          };
+          pane.addEventListener("pointerup", stopDragging);
+          pane.addEventListener("pointercancel", stopDragging);
+          pane.addEventListener("scroll", () => syncPaneScroll(pane));
+          pane.querySelector("img")?.addEventListener("dragstart", (event) => event.preventDefault());
+        });
+
+        const closeModal = () => {
+          modal.classList.remove("is-open");
+          document.body.classList.remove("detail-modal-open");
+        };
+
+        const openModal = (figure) => {
+          const figures = [...figure.parentElement.querySelectorAll("figure")];
+          currentRecords = figures.map((item, index) => {
+            const caption = item.querySelector("figcaption");
+            const captionLabel = caption?.querySelector("span")?.textContent.trim() || "";
+            const fileSize = caption?.querySelector("strong")?.textContent.trim() || "";
+            const dimensions = index === 1 ? captionLabel.split("·").slice(1).join("·").trim() : "";
+            return {
+              src: item.querySelector("img")?.src || "",
+              alt: item.querySelector("img")?.alt || "",
+              meta: [dimensions, fileSize].filter(Boolean).join(" · ")
+            };
+          });
+          currentRecords.forEach((record, index) => {
+            const side = index === 0 ? "original" : "compressed";
+            const image = modal.querySelector(`[data-pane-image="${side}"]`);
+            image.src = record.src;
+            image.alt = record.alt;
+            modal.querySelector(`[data-pane-meta="${side}"]`).textContent = record.meta;
+          });
+          scale = 1;
+          setModalCopy();
+          setScale(scale);
+          modal.classList.add("is-open");
+          document.body.classList.add("detail-modal-open");
+        };
+
+        const syncAfterZoomButton = (nextScale) => {
+          setScale(nextScale);
+          window.requestAnimationFrame(() => syncPaneScroll(panes[0]));
+        };
+        modal.querySelector("[data-zoom-out]").addEventListener("click", () => syncAfterZoomButton(scale - .25));
+        modal.querySelector("[data-zoom-in]").addEventListener("click", () => syncAfterZoomButton(scale + .25));
+        modal.querySelector("[data-zoom-reset]").addEventListener("click", () => syncAfterZoomButton(1));
+        modal.querySelector("[data-modal-close]").addEventListener("click", closeModal);
+        modal.addEventListener("click", (event) => {
+          if (event.target === modal) closeModal();
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && modal.classList.contains("is-open")) closeModal();
+        });
+        document.addEventListener("click", (event) => {
+          const figure = event.target.closest(".comparison .compare-grid figure");
+          if (figure) openModal(figure);
+        });
+        window.addEventListener("localshrink-language-change", setModalCopy);
+        setModalCopy();
+      })();
+    </script>
+    <style>
+      .comparison .output-format-badge {
+        position: absolute;
+        right: 22px;
+        bottom: 15px;
+        padding: 6px 9px;
+        background: var(--acid);
+        color: var(--ink);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .file-copy .output-meta {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 400;
+        white-space: nowrap;
+      }
+      .item-state.increased {
+        background: #ffe0d8;
+        color: var(--danger);
+      }
+      @media (max-width: 600px) {
+        .comparison .output-format-badge { right: 18px; bottom: 14px; font-size: 11px; }
+        .file-copy .output-meta { font-size: 11px; }
+      }
+    </style>
+    <script>
+      (() => {
+        const formatCopy = {
+          zh: { label: "輸出格式", auto: "自動 · 依檔案而異", note: "智慧選擇可能依每個檔案選用不同格式" },
+          en: { label: "Output format", auto: "Auto · varies by file", note: "Smart choice may use a different format for each file" }
+        };
+
+        const parseSize = (value) => {
+          const match = value.match(/([\d.]+)\s*(B|KB|MB|GB)/i);
+          if (!match) return 0;
+          const units = { B: 1, KB: 1024, MB: 1024 * 1024, GB: 1024 * 1024 * 1024 };
+          return Number(match[1]) * units[match[2].toUpperCase()];
+        };
+
+        const updateSizeDeltaStates = () => {
+          document.querySelectorAll(".queue-item").forEach((item) => {
+            const originalSize = parseSize(item.querySelector(".file-copy small")?.textContent || "");
+            const outputSize = parseSize(item.querySelector(".item-size")?.textContent || "");
+            const state = item.querySelector(".item-state");
+            if (!originalSize || !outputSize || !state || outputSize <= originalSize) {
+              state?.classList.remove("increased");
+              return;
+            }
+            const increase = Math.max(1, Math.round((outputSize / originalSize - 1) * 100));
+            const nextText = `+${increase}%`;
+            if (state.textContent !== nextText) state.textContent = nextText;
+            state.classList.add("increased");
+          });
+        };
+
+        const updateOutputFormat = () => {
+          const language = document.documentElement.dataset.language === "en" ? "en" : "zh";
+          const text = formatCopy[language];
+          const selected = document.querySelector('input[name="format"]:checked');
+          const value = selected?.value || "auto";
+          const format = value === "auto" ? text.auto : value.replace("image/", "").toUpperCase();
+          document.querySelectorAll(".comparison").forEach((comparison) => {
+            const head = comparison.querySelector(".queue-head");
+            if (!head) return;
+            let badge = head.querySelector(".output-format-badge");
+            if (!badge) {
+              badge = document.createElement("span");
+              badge.className = "output-format-badge";
+              head.appendChild(badge);
+            }
+            const displayFormat = badge.dataset.actualFormat || format;
+            const nextText = `${text.label} · ${displayFormat}`;
+            if (badge.textContent !== nextText) badge.textContent = nextText;
+            badge.title = badge.dataset.actualFormat ? `${text.label}: ${displayFormat}` : (value === "auto" ? text.note : `${text.label}: ${displayFormat}`);
+
+            const resultImage = comparison.querySelector(".compare-grid figure:nth-child(2) img");
+            const resultUrl = resultImage?.src || "";
+            if (resultUrl && resultUrl !== badge.dataset.source) {
+              const languageAtRequest = language;
+              badge.dataset.actualFormat = "";
+              badge.dataset.source = resultUrl;
+              fetch(resultUrl).then((response) => response.blob()).then((blob) => {
+                if (badge.dataset.source !== resultUrl || document.documentElement.dataset.language !== languageAtRequest || !blob.type) return;
+                const actualFormat = blob.type.replace("image/", "").toUpperCase();
+                badge.dataset.actualFormat = actualFormat;
+                const actualText = `${text.label} · ${actualFormat}`;
+                if (badge.textContent !== actualText) badge.textContent = actualText;
+                badge.title = `${text.label}: ${actualFormat}`;
+              }).catch(() => {});
+            }
+            if (badge.dataset.actualFormat) {
+              const actualText = `${text.label} · ${badge.dataset.actualFormat}`;
+              if (badge.textContent !== actualText) badge.textContent = actualText;
+              badge.title = `${text.label}: ${badge.dataset.actualFormat}`;
+            }
+
+            const activeItem = document.querySelector(".queue-item.active");
+            const fileCopy = activeItem?.querySelector(".file-copy");
+            const originalMeta = fileCopy?.querySelector("small");
+            const compressedFigure = comparison.querySelector(".compare-grid figure:nth-child(2)");
+            const compressedSize = compressedFigure?.querySelector("figcaption strong")?.textContent.trim() || "";
+            if (fileCopy && originalMeta) {
+              originalMeta.style.display = "none";
+              let outputMeta = fileCopy.querySelector(".output-meta");
+              if (!outputMeta) {
+                outputMeta = document.createElement("small");
+                outputMeta.className = "output-meta";
+                fileCopy.appendChild(outputMeta);
+              }
+              const originalText = `${language === "en" ? "Original" : "原始"} · ${originalMeta.textContent.trim()}`;
+              const outputText = `${language === "en" ? "Output" : "輸出"} · ${compressedSize} · ${displayFormat}`;
+              const combinedText = `${originalText}　　${outputText}`;
+              if (outputMeta.textContent !== combinedText) outputMeta.textContent = combinedText;
+            }
+          });
+        };
+
+        document.addEventListener("change", (event) => {
+          if (event.target.matches('input[name="format"]')) updateOutputFormat();
+        });
+        window.addEventListener("localshrink-language-change", updateOutputFormat);
+        window.addEventListener("load", () => window.setTimeout(updateOutputFormat, 0), { once: true });
+        window.setInterval(() => {
+          updateOutputFormat();
+          updateSizeDeltaStates();
+        }, 500);
       })();
     </script>
   </body>
