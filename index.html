@@ -253,5 +253,270 @@ react/cjs/react-jsx-runtime.production.js:
    *)
 */
 </script>
+    <style>
+      .topbar { position: relative; }
+      .topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .language-toggle {
+        position: static;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-width: 92px;
+        padding: 11px 14px;
+        border: 1px solid var(--ink);
+        background: var(--card);
+        color: var(--ink);
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .language-toggle:hover {
+        background: var(--acid);
+      }
+      .language-icon {
+        width: 17px;
+        height: 17px;
+        flex: 0 0 17px;
+      }
+      body { font-size: 18px; }
+      .topbar {
+        max-width: 1320px;
+        height: 92px;
+        padding: 0 36px;
+      }
+      .brand { gap: 13px; font-size: 24px; }
+      .brand-mark { width: 42px; height: 42px; font-size: 14px; }
+      .privacy-pill { padding: 12px 17px; font-size: 15px; }
+      .hero { max-width: 1320px; padding: 88px 36px 68px; }
+      .eyebrow, .section-label { font-size: 12px; }
+      .hero h1 { font-size: clamp(72px, 8vw, 118px); }
+      .hero-copy { max-width: 610px; font-size: 20px; line-height: 1.8; }
+      .trust-row { max-width: 610px; gap: 24px; font-size: 15px; }
+      .workspace {
+        max-width: 1320px;
+        grid-template-columns: minmax(0, 1fr) 390px;
+        gap: 28px;
+        padding: 0 36px;
+      }
+      .dropzone { min-height: 300px; padding: 44px; }
+      .drop-icon { width: 62px; height: 62px; font-size: 32px; }
+      .dropzone strong { font-size: 28px; }
+      .dropzone span { font-size: 16px; }
+      .choose-button { padding: 14px 22px; font-size: 15px; }
+      .queue-head { min-height: 86px; padding: 20px 22px; }
+      .queue-head h2, .settings-title h2 { font-size: 25px; }
+      .queue-item { min-height: 120px; padding: 14px 10px; }
+      .file-copy strong { font-size: 16px; }
+      .file-copy small, .item-size { font-size: 13px; }
+      .item-state { font-size: 12px; }
+      .rename-field input, select { font-size: 14px; }
+      .rename-field > span, .range-notes { font-size: 12px; }
+      .text-button { font-size: 14px; }
+      .notice { font-size: 15px; }
+      .compare-grid figcaption { font-size: 14px; }
+      .settings-title, fieldset { padding: 24px; }
+      legend, .format-grid strong { font-size: 15px; }
+      .format-grid small, .settings-note p { font-size: 12px; }
+      .settings-note { margin-left: 24px; margin-right: 24px; }
+      .summary { margin-left: 24px; margin-right: 24px; }
+      .summary div { font-size: 14px; }
+      .primary-button {
+        width: calc(100% - 48px);
+        margin: 24px;
+        min-height: 64px;
+        font-size: 15px;
+      }
+      .download-actions { margin-left: 24px; margin-right: 24px; }
+      .download-actions button { font-size: 13px; }
+      footer { font-size: 13px; }
+      html[data-language="en"] .hero h1 {
+        max-width: 760px;
+        font-size: clamp(56px, 5.6vw, 88px);
+      }
+      @media (max-width: 900px) {
+        .workspace { grid-template-columns: 1fr; gap: 20px; }
+        .workspace-main { grid-row: 1; }
+        .settings { position: static; grid-row: 2; }
+      }
+      @media (max-width: 600px) {
+        .topbar { height: 76px; padding: 0 18px; }
+        .topbar-actions { gap: 6px; }
+        .language-toggle { min-width: 76px; padding: 9px 10px; font-size: 12px; }
+        .language-icon { width: 15px; height: 15px; flex-basis: 15px; }
+        .brand { gap: 9px; font-size: 19px; }
+        .brand-mark { width: 34px; height: 34px; font-size: 12px; }
+        .privacy-pill { padding: 9px 10px; font-size: 11px; }
+        .hero { padding: 58px 18px 46px; }
+        .hero h1 { font-size: clamp(58px, 17vw, 82px); }
+        html[data-language="en"] .hero h1 { font-size: clamp(48px, 14vw, 68px); }
+        .hero-copy { font-size: 18px; }
+        .trust-row { font-size: 13px; }
+        .workspace { padding: 0 18px; }
+      }
+    </style>
+    <script>
+      (() => {
+        const translations = [
+          ["圖片變輕，", "Lighter images,"],
+          ["隱私留下。", "Privacy stays."],
+          ["壓縮在你的瀏覽器裡完成。圖片不離開這台電腦，不經伺服器，也不留下副本。", "Compressed in your browser. Images stay on this device, never reach a server, and leave no copies behind."],
+          ["本機模式 · 0 次上傳", "Local mode · 0 uploads"],
+          ["離線可用", "Works offline"],
+          ["不覆蓋原檔", "Originals stay safe"],
+          ["無使用上限", "No usage limits"],
+          ["把圖片拖到這裡", "Drop images here"],
+          ["放開就好", "Release to drop"],
+          ["或點一下選擇 PNG、JPEG、WebP", "Or click to choose PNG, JPEG, or WebP"],
+          ["選擇圖片", "Choose images"],
+          ["目前支援 PNG、JPEG 與 WebP；其他檔案已略過。", "PNG, JPEG, and WebP are supported; other files were skipped."],
+          ["清空全部", "Clear all"],
+          ["尚未選擇圖片", "No images selected"],
+          ["張等待處理", " image(s) waiting"],
+          ["張處理完成", " image(s) processed"],
+          ["正在本機處理 ", "Processing "],
+          ["張", " image(s) locally"],
+          ["等待", "Waiting"],
+          ["處理中…", "Processing…"],
+          ["原檔已最小", "Original is already smaller"],
+          ["失敗", "Failed"],
+          ["輸出檔名", "Output filename"],
+          ["移除 ", "Remove "],
+          ["壓縮前後", "Before and after"],
+          ["下載這張 ↓", "Download this ↓"],
+          ["原始", "Original"],
+          ["壓縮後 · ", "Compressed · "],
+          ["壓縮設定", "Compression settings"],
+          ["輸出格式", "Output format"],
+          ["智慧選擇", "Smart choice"],
+          ["自動挑最小格式", "Automatically choose the smallest format"],
+          ["網站通用", "Great for the web"],
+          ["適合照片", "Best for photos"],
+          ["保留透明", "Keeps transparency"],
+          ["圖片品質", "Image quality"],
+          ["檔案更小", "Smaller file"],
+          ["細節更多", "More detail"],
+          ["長邊上限", "Max dimension"],
+          ["不縮放尺寸", "Do not resize"],
+          ["1920 px · 網頁大圖", "1920 px · Large web image"],
+          ["2560 px · 高解析", "2560 px · High resolution"],
+          ["3840 px · 4K", "3840 px · 4K"],
+          ["重新編碼會自然移除 EXIF、GPS 與相機資訊。智慧模式若原檔已最小，則會直接保留原檔內容。", "Re-encoding naturally removes EXIF, GPS, and camera information. In smart mode, the original is kept if it is already smaller."],
+          ["原始大小", "Original size"],
+          ["壓縮後", "Compressed"],
+          ["總共省下", "Total saved"],
+          ["正在你的電腦上處理", "Processing on your computer"],
+          ["套用設定重新壓縮", "Compress again with these settings"],
+          ["開始壓縮", "Start compression"],
+          ["逐檔下載全部", "Download all files"],
+          ["下載 ZIP", "Download ZIP"],
+          ["所有處理都發生在這個分頁。關閉分頁後，暫存圖片會由瀏覽器釋放。", "All processing happens in this tab. Temporary images are released by the browser when you close it."],
+          ["本機壓縮圖片-", "Local-compressed-images-"],
+          [" 的輸出檔名", "'s output filename"],
+          ["壓縮前", "before compression"],
+          ["壓縮後", "after compression"]
+        ];
+
+        let language = "zh";
+        try {
+          language = window.localStorage.getItem("localshrink-language") || "zh";
+        } catch {}
+        let translating = false;
+
+        const replaceLanguage = (value, toEnglish) => {
+          let result = value;
+          for (const [zh, en] of translations) {
+            result = result.split(toEnglish ? zh : en).join(toEnglish ? en : zh);
+          }
+          return result;
+        };
+
+        const translatePage = () => {
+          if (translating) return;
+          translating = true;
+          const toEnglish = language === "en";
+          document.documentElement.lang = toEnglish ? "en" : "zh-Hant";
+          document.documentElement.dataset.language = toEnglish ? "en" : "zh";
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          let node;
+          while ((node = walker.nextNode())) {
+            if (node.parentElement?.closest("script, style")) continue;
+            const translated = replaceLanguage(node.nodeValue, toEnglish);
+            if (translated !== node.nodeValue) node.nodeValue = translated;
+          }
+          document.querySelectorAll("[aria-label], [placeholder]").forEach((element) => {
+            for (const attribute of ["aria-label", "placeholder"]) {
+              if (element.hasAttribute(attribute)) {
+                const current = element.getAttribute(attribute);
+                const translated = replaceLanguage(current, toEnglish);
+                if (translated !== current) element.setAttribute(attribute, translated);
+              }
+            }
+          });
+          const button = document.getElementById("language-toggle");
+          if (button) {
+            const nextText = toEnglish ? "中文" : "EN";
+            const nextLabel = toEnglish ? "切換至中文" : "Switch to English";
+            const label = button.querySelector(".language-label");
+            if (label && label.textContent !== nextText) label.textContent = nextText;
+            if (button.getAttribute("aria-label") !== nextLabel) button.setAttribute("aria-label", nextLabel);
+          }
+          translating = false;
+        };
+
+        const ensureLanguageButton = () => {
+          const topbar = document.querySelector(".topbar");
+          if (!topbar || document.getElementById("language-toggle")) return Boolean(topbar);
+          const button = document.createElement("button");
+          button.id = "language-toggle";
+          button.className = "language-toggle";
+          button.type = "button";
+          button.innerHTML = '<svg class="language-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.2 12h17.6M12 2.75c2.35 2.55 3.5 5.62 3.5 9.25S14.35 18.7 12 21.25c-2.35-2.55-3.5-5.62-3.5-9.25S9.65 5.3 12 2.75Z" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/><path d="M4.7 7.5h14.6M4.7 16.5h14.6" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/></svg><span class="language-label"></span>';
+          button.addEventListener("click", () => {
+            language = language === "en" ? "zh" : "en";
+            try {
+              window.localStorage.setItem("localshrink-language", language);
+            } catch {}
+            translatePage();
+          });
+          const privacyPill = topbar.querySelector(".privacy-pill");
+          const actions = document.createElement("div");
+          actions.className = "topbar-actions";
+          if (privacyPill) {
+            topbar.insertBefore(actions, privacyPill);
+            actions.appendChild(privacyPill);
+          } else {
+            topbar.appendChild(actions);
+          }
+          actions.appendChild(button);
+          return true;
+        };
+
+        const observer = new MutationObserver(() => {
+          if (!translating && language === "en") translatePage();
+        });
+        let observerStarted = false;
+
+        const boot = () => {
+          if (!ensureLanguageButton()) {
+            window.setTimeout(boot, 50);
+            return;
+          }
+          translatePage();
+          if (!observerStarted) {
+            const root = document.getElementById("root");
+            if (root) {
+              observer.observe(root, { childList: true, subtree: true });
+              observerStarted = true;
+            }
+          }
+        };
+        window.addEventListener("load", () => window.setTimeout(boot, 0), { once: true });
+      })();
+    </script>
   </body>
 </html>
