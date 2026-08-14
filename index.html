@@ -1020,5 +1020,30 @@ react/cjs/react-jsx-runtime.production.js:
         }, 500);
       })();
     </script>
+    <script>
+      (() => {
+        const privacyLines = [
+          {
+            zh: "你的檔案不出門，也不在這裡過夜",
+            en: "Your files never leave your device, and never spend the night here."
+          },
+          {
+            zh: "留在你的裝置，止於你的瀏覽器",
+            en: "Stays on your device. Stops at your browser."
+          }
+        ];
+        const selectedLine = privacyLines[Math.floor(Math.random() * privacyLines.length)];
+
+        const updatePrivacyLine = () => {
+          const pill = document.querySelector(".privacy-pill");
+          if (!pill) return;
+          const textNode = [...pill.childNodes].find((node) => node.nodeType === Node.TEXT_NODE);
+          if (textNode) textNode.textContent = ` ${selectedLine[document.documentElement.dataset.language === "en" ? "en" : "zh"]}`;
+        };
+
+        window.addEventListener("localshrink-language-change", updatePrivacyLine);
+        window.addEventListener("load", () => window.setTimeout(updatePrivacyLine, 0), { once: true });
+      })();
+    </script>
   </body>
 </html>
