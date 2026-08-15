@@ -687,7 +687,7 @@ react/cjs/react-jsx-runtime.production.js:
         document.body.appendChild(modal);
 
         let scale = 1;
-        let currentRecords = [];
+        let currentComparisonKey = "";
         const copy = {
           zh: { kicker: "細節檢視", title: "放大比較", hint: "按住滑鼠拖曳移動，滾動滾輪縮放；可查看細節與壓縮損失", zoomOut: "縮小", zoomIn: "放大", close: "關閉", original: "原始", compressed: "壓縮後" },
           en: { kicker: "DETAIL VIEW", title: "Zoomed comparison", hint: "Drag with the mouse to pan and use the wheel to zoom; inspect detail and compression loss", zoomOut: "Zoom out", zoomIn: "Zoom in", close: "Close", original: "Original", compressed: "Compressed" }
@@ -786,11 +786,18 @@ react/cjs/react-jsx-runtime.production.js:
         const closeModal = () => {
           modal.classList.remove("is-open");
           document.body.classList.remove("detail-modal-open");
+          currentComparisonKey = "";
+        };
+
+        const getComparisonKey = () => {
+          const root = document.getElementById("root");
+          const images = root?.querySelectorAll(".comparison .compare-grid img") || [];
+          return [...images].map((image) => image.currentSrc || image.src || "").join("|");
         };
 
         const openModal = (figure) => {
           const figures = [...figure.parentElement.querySelectorAll("figure")];
-          currentRecords = figures.map((item, index) => {
+          const currentRecords = figures.map((item, index) => {
             const caption = item.querySelector("figcaption");
             const captionLabel = caption?.querySelector("span")?.textContent.trim() || "";
             const fileSize = caption?.querySelector("strong")?.textContent.trim() || "";
@@ -801,6 +808,8 @@ react/cjs/react-jsx-runtime.production.js:
               meta: [dimensions, fileSize].filter(Boolean).join(" · ")
             };
           });
+          if (currentRecords.length < 2 || currentRecords.some((record) => !record.src)) return;
+          currentComparisonKey = currentRecords.map((record) => record.src).join("|");
           currentRecords.forEach((record, index) => {
             const side = index === 0 ? "original" : "compressed";
             const image = modal.querySelector(`[data-pane-image="${side}"]`);
@@ -830,15 +839,25 @@ react/cjs/react-jsx-runtime.production.js:
           if (event.key === "Escape" && modal.classList.contains("is-open")) closeModal();
         });
         document.addEventListener("click", (event) => {
-          const figure = event.target.closest(".comparison .compare-grid figure");
+          const figure = event.target instanceof Element
+            ? event.target.closest(".comparison .compare-grid figure")
+            : null;
           if (figure) openModal(figure);
         });
+        const root = document.getElementById("root");
+        if (root) {
+          const rootObserver = new MutationObserver(() => {
+            if (modal.classList.contains("is-open") && getComparisonKey() !== currentComparisonKey) closeModal();
+          });
+          rootObserver.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] });
+        }
         window.addEventListener("localshrink-language-change", setModalCopy);
         setModalCopy();
       })();
     </script>
     <style>
-      .comparison .output-format-badge {
+      .comparison .queue-head::before {
+        content: attr(data-output-format);
         position: absolute;
         right: 22px;
         bottom: 15px;
@@ -849,7 +868,8 @@ react/cjs/react-jsx-runtime.production.js:
         font-size: 12px;
         font-weight: 800;
       }
-      .file-copy .output-meta {
+      .file-copy[data-output-meta]::after {
+        content: attr(data-output-meta);
         display: block;
         margin-top: 6px;
         color: var(--muted);
@@ -857,13 +877,19 @@ react/cjs/react-jsx-runtime.production.js:
         font-weight: 400;
         white-space: nowrap;
       }
+      .file-copy[data-output-meta] > small { display: none; }
       .item-state.increased {
         background: #ffe0d8;
         color: var(--danger);
       }
+      .item-state.increased { font-size: 0; }
+      .item-state.increased::after {
+        content: attr(data-size-delta);
+        font-size: 11px;
+      }
       @media (max-width: 600px) {
-        .comparison .output-format-badge { right: 18px; bottom: 14px; font-size: 11px; }
-        .file-copy .output-meta { font-size: 11px; }
+        .comparison .queue-head::before { right: 18px; bottom: 14px; font-size: 11px; }
+        .file-copy[data-output-meta]::after { font-size: 11px; }
       }
     </style>
     <script>
@@ -910,12 +936,15 @@ react/cjs/react-jsx-runtime.production.js:
             const outputSize = parseSize(item.querySelector(".item-size")?.textContent || "");
             const state = item.querySelector(".item-state");
             if (!originalSize || !outputSize || !state || outputSize <= originalSize) {
-              state?.classList.remove("increased");
+              if (state) {
+                state.classList.remove("increased");
+                delete state.dataset.sizeDelta;
+              }
               return;
             }
             const increase = Math.max(1, Math.round((outputSize / originalSize - 1) * 100));
             const nextText = `+${increase}%`;
-            if (state.textContent !== nextText) state.textContent = nextText;
+            state.dataset.sizeDelta = nextText;
             state.classList.add("increased");
           });
         };
@@ -947,64 +976,55 @@ react/cjs/react-jsx-runtime.production.js:
           document.querySelectorAll(".comparison").forEach((comparison) => {
             const head = comparison.querySelector(".queue-head");
             if (!head) return;
-            let badge = head.querySelector(".output-format-badge");
-            if (!badge) {
-              badge = document.createElement("span");
-              badge.className = "output-format-badge";
-              head.appendChild(badge);
-            }
-            const displayFormat = badge.dataset.actualFormat || format;
+            const displayFormat = head.dataset.actualFormat || format;
             const nextText = `${text.label} · ${displayFormat}`;
-            if (badge.textContent !== nextText) badge.textContent = nextText;
-            badge.title = badge.dataset.actualFormat ? `${text.label}: ${displayFormat}` : (value === "auto" ? text.note : `${text.label}: ${displayFormat}`);
+            head.dataset.outputFormat = nextText;
+            head.title = head.dataset.actualFormat ? `${text.label}: ${displayFormat}` : (value === "auto" ? text.note : `${text.label}: ${displayFormat}`);
 
             const resultImage = comparison.querySelector(".compare-grid figure:nth-child(2) img");
             const resultUrl = resultImage?.src || "";
-            if (resultUrl && resultUrl !== badge.dataset.source) {
+            if (resultUrl && resultUrl !== head.dataset.source) {
               const languageAtRequest = language;
-              badge.dataset.actualFormat = "";
-              badge.dataset.source = resultUrl;
+              head.dataset.actualFormat = "";
+              head.dataset.source = resultUrl;
               fetch(resultUrl).then((response) => response.blob()).then((blob) => {
-                if (badge.dataset.source !== resultUrl || document.documentElement.dataset.language !== languageAtRequest || !blob.type) return;
+                if (head.dataset.source !== resultUrl || document.documentElement.dataset.language !== languageAtRequest || !blob.type) return;
                 const actualFormat = blob.type.replace("image/", "").toUpperCase();
-                badge.dataset.actualFormat = actualFormat;
+                head.dataset.actualFormat = actualFormat;
                 const actualText = `${text.label} · ${actualFormat}`;
-                if (badge.textContent !== actualText) badge.textContent = actualText;
-                badge.title = `${text.label}: ${actualFormat}`;
+                head.dataset.outputFormat = actualText;
+                head.title = `${text.label}: ${actualFormat}`;
               }).catch(() => {});
             }
-            if (badge.dataset.actualFormat) {
-              const actualText = `${text.label} · ${badge.dataset.actualFormat}`;
-              if (badge.textContent !== actualText) badge.textContent = actualText;
-              badge.title = `${text.label}: ${badge.dataset.actualFormat}`;
+            if (head.dataset.actualFormat) {
+              const actualText = `${text.label} · ${head.dataset.actualFormat}`;
+              head.dataset.outputFormat = actualText;
+              head.title = `${text.label}: ${head.dataset.actualFormat}`;
             }
 
           });
 
           const activeItem = document.querySelector(".queue-item.active");
           const activeComparison = document.querySelector(".comparison");
-          const activeBadge = activeComparison?.querySelector(".output-format-badge");
-          const activeFormat = activeBadge?.dataset.actualFormat || format;
+          const activeHead = activeComparison?.querySelector(".queue-head");
+          const activeFormat = activeHead?.dataset.actualFormat || format;
           document.querySelectorAll(".queue-item").forEach((item) => {
             const fileCopy = item.querySelector(".file-copy");
-            const originalMeta = fileCopy?.querySelector("small:not(.output-meta)");
+            const originalMeta = fileCopy?.querySelector("small");
             const compressedSize = item.querySelector(".item-size")?.textContent.trim() || "";
-            if (!fileCopy || !originalMeta || !compressedSize || compressedSize === "—") return;
-
-            originalMeta.style.display = "none";
-            let outputMeta = fileCopy.querySelector(".output-meta");
-            if (!outputMeta) {
-              outputMeta = document.createElement("small");
-              outputMeta.className = "output-meta";
-              fileCopy.appendChild(outputMeta);
+            if (!fileCopy) return;
+            if (!originalMeta || !compressedSize || compressedSize === "—") {
+              delete fileCopy.dataset.outputMeta;
+              return;
             }
+
             const fileName = fileCopy.querySelector("strong")?.textContent.trim() || "";
             const displayFormat = actualFormatsByName.get(fileName)
               || (item === activeItem ? activeFormat : rowFormat);
             const originalText = `${language === "en" ? "Original" : "原始"} · ${originalMeta.textContent.trim()}`;
             const outputText = `${language === "en" ? "Output" : "輸出"} · ${compressedSize} · ${displayFormat}`;
             const combinedText = `${originalText}　　${outputText}`;
-            if (outputMeta.textContent !== combinedText) outputMeta.textContent = combinedText;
+            fileCopy.dataset.outputMeta = combinedText;
           });
         };
 
