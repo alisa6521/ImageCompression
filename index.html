@@ -615,6 +615,15 @@ react/cjs/react-jsx-runtime.production.js:
       .detail-modal-pane {
         min-width: 0;
         min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #e8e5db;
+      }
+      .detail-modal-image-viewport {
+        min-width: 0;
+        min-height: 0;
+        flex: 1;
         overflow: auto;
         cursor: grab;
         background-color: #e8e5db;
@@ -622,7 +631,7 @@ react/cjs/react-jsx-runtime.production.js:
         background-size: 16px 16px;
         background-position: 0 0,0 8px,8px -8px,-8px 0;
       }
-      .detail-modal-pane.is-dragging {
+      .detail-modal-image-viewport.is-dragging {
         cursor: grabbing;
         user-select: none;
       }
@@ -631,6 +640,8 @@ react/cjs/react-jsx-runtime.production.js:
         top: 0;
         z-index: 1;
         display: flex;
+        flex: 0 0 auto;
+        width: 100%;
         justify-content: space-between;
         gap: 12px;
         padding: 12px 14px;
@@ -677,11 +688,11 @@ react/cjs/react-jsx-runtime.production.js:
           <div class="detail-modal-body">
             <section class="detail-modal-pane">
               <div class="detail-modal-pane-head"><strong data-pane-title="original"></strong><span data-pane-meta="original"></span></div>
-              <img data-pane-image="original" alt="" />
+              <div class="detail-modal-image-viewport"><img data-pane-image="original" alt="" /></div>
             </section>
             <section class="detail-modal-pane">
               <div class="detail-modal-pane-head"><strong data-pane-title="compressed"></strong><span data-pane-meta="compressed"></span></div>
-              <img data-pane-image="compressed" alt="" />
+              <div class="detail-modal-image-viewport"><img data-pane-image="compressed" alt="" /></div>
             </section>
           </div>`;
         document.body.appendChild(modal);
@@ -708,7 +719,7 @@ react/cjs/react-jsx-runtime.production.js:
           modal.querySelector('[data-pane-title="compressed"]').textContent = text.compressed;
         };
 
-        const panes = [...modal.querySelectorAll(".detail-modal-pane")];
+        const panes = [...modal.querySelectorAll(".detail-modal-image-viewport")];
         let syncingScroll = false;
 
         const syncPaneScroll = (sourcePane) => {
